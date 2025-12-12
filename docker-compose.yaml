@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Local MongoDB service (optional - comment out if using MongoDB Atlas)
+  mongodb:
+    image: mongo:7.0
+    container_name: org_mgmt_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: org_master
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - local-db  # Only start if explicitly requested
+
+  api:
+    build: .
+    container_name: org_mgmt_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      MONGODB_URL: ${MONGODB_URL:-mongodb://mongodb:27017}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-org_master}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
+      DEBUG: ${DEBUG:-false}
+    # Remove depends_on when using MongoDB Atlas
+    # depends_on:
+    #   mongodb:
+    #     condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  mongodb_data:
+
